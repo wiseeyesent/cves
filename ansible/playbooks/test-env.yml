@@ -1,0 +1,50 @@
+---
+- hosts: cvesearch
+  vars:
+    - playbook: "cvesearch.test_env"
+    - home: "{{ ansible_env.HOME }}"
+    - gitdir: "{{ home }}/.ansible/git/test_db"
+    - bindir: "{{ home }}/.ansible/bin"
+  tasks:
+  - name: Install git
+    yum:
+      name: git
+      state: latest
+  - name: Prep Destination Dir
+    file:
+      path: "{{ gitdir }}"
+      state: directory
+  - name: Clone employees Example DB
+    git:
+      repo: 'https://github.com/datacharmer/test_db.git'
+      dest: "{{ gitdir }}"
+      clone: yes
+  - name: Check for employees Example DB
+    shell: "ls -d /var/lib/mysql/employees"
+    register: empdb
+    ignore_errors: yes
+  - name: Import employees Example DB
+    shell: "/usr/bin/mysql <{{ gitdir }}/employees.sql"
+    args:
+      chdir: "{{ gitdir }}"
+    when: empdb.rc != 0
+  - name: Add MySQL Test User
+    mysql_user:
+      name: testusr
+      host: localhost
+      priv: employees.*:ALL
+      password: '!!!MySQLT3stUs3r!!!'
+      login_unix_socket: /var/lib/mysql/mysql.sock
+  - name: Verify DB Accesss
+    shell: "/usr/bin/mysql -utestusr -p'!!!MySQLT3stUs3r!!!' --socket /var/lib/mysql/mysql.sock employees -e 'desc employees'"
+  - name: Prep script destination dir
+    file:
+      path: "{{ bindir }}"
+      state: directory
+  - name: Upload test script
+    copy:
+      src: ../resources/testdb.py
+      dest: "{{ bindir }}/testdb.py"
+      mode: 0711
+  - name: Execute test script
+    shell: "{{ bindir }}/testdb.py"

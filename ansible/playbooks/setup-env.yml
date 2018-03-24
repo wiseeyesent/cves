@@ -1,0 +1,65 @@
+---
+- hosts: cvesearch
+  vars:
+    - modified: "yes"
+    - playbook: "cvesearch"
+    - bupdir: "{{ ansible_env.HOME }}/.ansible/backups/{{ playbook }}"
+  tasks:
+  - name: Check vars
+    debug:
+      var: "{{ item }}"
+    with_items:
+    - modified
+    - ansible_os_family
+    - ansible_distribution
+    - ansible_distribution_major_version
+  - name: Fail check
+    fail:
+      msg: "This is a work in progress and is liable to destroy everything. Please be aware of what you are doing before executing this playbook with escalated privileges."
+    when: modified | match("no")
+  - name: Compatibility Check
+    fail:
+      msg: "Incompatible OS! {{ ansible_distribution }} {{ ansible_distribution_major_version }}. Must be RHEL/CentOS6+"
+    when: (ansible_os_family != "RedHat" or ansible_distribution_major_version | version_compare('6', '<'))
+  - name: Update System
+    yum:
+      name: '*'
+      state: latest
+  - name: Create Backup Dir
+    file:
+      path: "{{ bupdir }}"
+      state: directory
+  - name: Install yum-plugin-replace
+    yum:
+      name: yum-plugin-replace
+      state: latest
+  - name: Replace mariadb Default Package
+    shell: yes | yum replace mariadb-libs --replace-with=mariadb101u-libs
+  - name: Install MariaDB
+    yum:
+      name: "{{ item }}"
+      state: latest
+    with_items:
+    - mariadb101u
+    - mariadb101u-server
+    - mariadb101u-server-utils
+  - name: Backup Current MySQL Configuration
+    shell: "cp -rav /etc/my.cnf /etc/my.cnf.d {{ bupdir }}"
+    args:
+      creates: "{{ bupdir }}/my.cnf"
+  - name: Update MySQL Configuration
+    template:
+      src: ../templates/my.cnf.d/cvesearch.cnf.j2
+      dest: /etc/my.cnf.d/cves-server.cnf
+  - name: Restart MariaDB
+    service:
+      name: mariadb
+      state: restarted
+      enabled: yes
+  - name: Install Python MySQL Packages
+    yum:
+      name: "{{ item }}"
+      state: latest
+    with_items:
+    - MySQL-python
+    - mysql-connector-python

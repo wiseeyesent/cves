@@ -1,0 +1,140 @@
+#!/bin/bash
+#set -x
+# rebuild
+#
+# Reload (re-image) the server
+# ./bin/rebuild [server UUID]
+#
+# NOTE: Relies upon rack-cli being installed & configured
+#	https://developer.rackspace.com/docs/rack-cli/
+#
+# TODO: [ '!': 'Critical', '-': 'Moderate' ]
+#	! Better argument handling
+#		http://linuxcommand.org/lc3_wss0120.php
+#	- Verbosity flag
+#	- Remove dependency on default rack-cli environment
+#	- Support rack-cli environment name
+V=1
+
+print_usage() {
+cat <<- _EOF_
+Usage: `basename $0` [UUID] [IMGID] [PASSWD]
+Rebuild server for environment refresh.
+
+With no arguments, print usage.
+
+  UUID		cloud server UUID
+  IMGID		image ID to rebuild server with
+  PASSWD	OPTIONAL: New admin (root) password
+
+NOTE: Requires default rack-cli environment setup with appropriate permissions.
+WARNING! Will destroy your server!
+_EOF_
+exit 1
+}
+
+query_user() {
+	PROMPT=$1
+	shift
+	if [[ -z "$PROMPT" ]]; then echo 'Invalid query_user() Argument: $PROMPT'; exit 1; fi
+	read -p "$PROMPT" var
+	var=`echo ${var:0:1}|awk '{print toupper($0)}'`
+	RETVAL="1"
+	if [[ $var == "Y" ]]; then RETVAL="0"; fi
+	return $RETVAL
+}
+
+if [[ $# -eq 0 ]]; then print_usage; fi
+
+echo -e "WARNING! This is under development and WILL destroy your server!\nDO NOT TREAD LIGHTLY!\n"
+
+UUID=$1 && shift
+IMGID=$1 && shift
+if [[ -z "$UUID" ]]; then
+   echo -e "No UUID provided! Please provide UUID for server in question."
+   print_usage
+elif [[ -z "$IMGID" ]]; then
+   echo -e "No Image ID provided! Please provide UUID of image for rebuild."
+   print_usage
+fi
+
+PASS=${1:-''} && shift
+
+which rack &>/dev/null
+RC=$?
+if [[ $RC -ne 0 ]]; then
+   echo -e "rack-cli not installed.\n\thttps://developer.rackspace.com/docs/rack-cli/"
+   exit 1
+fi
+
+RACKCLI=`which rack`
+[[ $V -gt 0 ]] && $RACKCLI version
+
+CMD="$RACKCLI servers instance get --id $UUID"
+[[ $V -gt 0 ]] && echo -e "Safety check..."
+$CMD | grep -E "^Name\s+\S*cvesearch\s*$"
+RC=$?
+if [[ $RC != 0 ]]; then
+   echo "This does not appear to be a cvesearch server. Are you sure you have the right UUID?"
+   exit 1
+fi
+
+[[ $V -gt 0 ]] && echo "EXECUTING: $CMD"
+$CMD
+CMD=""
+
+answer=`query_user "Create new server image? (y/N) "`
+if [[ $answer -eq 0 ]]; then
+   name=""
+   while [[ -z "$name" ]]; do
+     read -p "Image Name? " name
+   done
+   CMD="$RACKCLI servers image create --name $name --server-id $UUID"
+   [[ $V -gt 0 ]] && echo "EXECUTING: $CMD"
+   $CMD
+   RC=$?
+   if [[ $RC -ne 0 ]]; then
+      echo -e "ERROR! Issue with image creation.\nCMD: $CMD\nRC: $RC"
+      exit 1
+   fi
+
+   answer=`query_user "Watch the image? (^C to exit) (y/N) "`
+   if [[ $answer -eq 0 ]]; then
+      CMD="`which watch` -n3 $RACKCLI servers image get --name $name"
+      [[ $V -gt 0 ]] && echo "EXECUTING: $CMD"
+      $CMD
+   fi
+
+   CMD="$RACKCLI servers image get --name $name"
+   [[ $V -gt 0 ]] && echo -e "Waiting for image to finish...\nEXECUTING: $CMD"
+
+   STATUS="SAVING"
+   while [[ $STATUS != "ACTIVE" ]]; do
+      STATUS="`$CMD|awk '$1 ~ /^Status$/ {print $2}'`"
+   done
+fi
+
+answer=`query_user "Proceed with server rebuild? (y/N) "`
+if [[ $answer -ne 0 ]]; then exit 0; fi
+
+CMD="$RACKCLI servers instance rebuild --id $UUID --image-id $IMGID"
+if [[ ! -z "$PASS" ]]; then
+   CMD="$CMD --admin-pass $PASS"
+fi
+
+[[ $V -gt 0 ]] && echo "EXECUTING: $CMD"
+$CMD
+RC=$?
+if [[ $RC -ne 0 ]]; then
+   echo -e "ERROR! Issue with rebuild.\nCMD: $CMD\nRC: $RC"
+   exit 1
+fi
+CMD=""
+
+answer=`query_user "Watch the rebuild? (^C to quit) (y/N) "`
+if [[ $answer -ne 0 ]]; then exit 0; fi
+
+CMD="`which watch` -n3 $RACKCLI servers instance get --id $UUID"
+[[ $V -gt 0 ]] && echo "EXECUTING: $CMD"
+$CMD
+CMD=""
