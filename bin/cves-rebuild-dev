@@ -18,14 +18,15 @@ V=1
 
 print_usage() {
 cat <<- _EOF_
-Usage: `basename $0` [UUID] [IMGID] [PASSWD]
+Usage: `basename $0` [[-u | --uuid UUID] [-n | --name NAME]] [-i | --image IMAGE] [-a | --admin-pass PASS]
 Rebuild server for environment refresh.
 
 With no arguments, print usage.
 
-  UUID		cloud server UUID
-  IMGID		image ID to rebuild server with
-  PASSWD	OPTIONAL: New admin (root) password
+  UUID      cloud server UUID
+  NAME      cloud server name
+  IMAGE     image ID to rebuild server with
+  PASS      admin password
 
 NOTE: Requires default rack-cli environment setup with appropriate permissions.
 WARNING! Will destroy your server!
@@ -36,29 +37,55 @@ exit 1
 query_user() {
 	PROMPT=$1
 	shift
-	if [[ -z "$PROMPT" ]]; then echo 'Invalid query_user() Argument: $PROMPT'; exit 1; fi
+	if [[ -z "$PROMPT" ]]; then echo "Invalid query_user() Argument: $PROMPT"; exit 1; fi
 	read -p "$PROMPT" var
 	var=`echo ${var:0:1}|awk '{print toupper($0)}'`
-	RETVAL="1"
-	if [[ $var == "Y" ]]; then RETVAL="0"; fi
+	RETVAL=1
+	if [[ "$var" == "Y" ]]; then RETVAL=0; fi
 	return $RETVAL
 }
 
 if [[ $# -eq 0 ]]; then print_usage; fi
 
-echo -e "WARNING! This is under development and WILL destroy your server!\nDO NOT TREAD LIGHTLY!\n"
+echo -e 'WARNING! This is under development and WILL destroy your server!\nDO NOT TREAD LIGHTLY!\n'
 
-UUID=$1 && shift
-IMGID=$1 && shift
-if [[ -z "$UUID" ]]; then
-   echo -e "No UUID provided! Please provide UUID for server in question."
+UUID=""
+IMAGE=""
+NAME=""
+PASS=""
+
+while [[ "$1" != "" ]]; do
+    flag=$1 && shift
+    case "$flag" in
+        '-u' | '--uuid')
+            UUID=$1 && shift 
+            ;;
+        '-n' | '--name')
+            NAME=$1 && shift
+            ;;
+        '-i' | '--image')
+            IMAGE="$1" && shift
+            ;;
+        '-a' | '--admin-pass')
+            PASS="$1" && shift
+            ;;
+        *)
+            echo "Unknown Argument! $1" && shift
+            print_usage
+            ;;
+    esac
+done
+
+if [[ -z "$UUID" && -z "$NAME" ]]; then
+   echo -e "No UUID or NAME provided! Please provide UUID or NAME for server in question."
    print_usage
-elif [[ -z "$IMGID" ]]; then
+elif [[ -z "$IMAGE" ]]; then
    echo -e "No Image ID provided! Please provide UUID of image for rebuild."
    print_usage
+elif [[ -z "$PASS" ]]; then
+   echo -e "No Admin Password provided! Please provide an admin password."
+   print_usage
 fi
-
-PASS=${1:-''} && shift
 
 which rack &>/dev/null
 RC=$?
@@ -70,8 +97,16 @@ fi
 RACKCLI=`which rack`
 [[ $V -gt 0 ]] && $RACKCLI version
 
-CMD="$RACKCLI servers instance get --id $UUID"
-[[ $V -gt 0 ]] && echo -e "Safety check..."
+CMD=""
+if [[ ! -z "$UUID" ]]; then
+    CMD="$RACKCLI servers instance get --id $UUID"
+elif [[ ! -z "$NAME" ]]; then
+    CMD="$RACKCLI servers instance get --name $NAME"
+else
+    echo -e "No UUID or NAME provided to identify server."
+    exit 1
+fi
+[[ $V -gt 0 ]] && echo -e "Safety check...\nEXECUTING: $CMD | grep -E \"^Name\s+\S*cvesearch\s*\$\""
 $CMD | grep -E "^Name\s+\S*cvesearch\s*$"
 RC=$?
 if [[ $RC != 0 ]]; then
@@ -80,11 +115,16 @@ if [[ $RC != 0 ]]; then
 fi
 
 [[ $V -gt 0 ]] && echo "EXECUTING: $CMD"
-$CMD
+echo -e "\nSERVER DETAILS:"
+SERVER=`$CMD`
+echo "$SERVER"
+UUID=`echo $SERVER|awk '/^ID/ {print $2}'`
+echo UUID: $UUID
 CMD=""
 
-answer=`query_user "Create new server image? (y/N) "`
-if [[ $answer -eq 0 ]]; then
+query_user "Create new server image? (y/N) "
+RC=$?
+if [[ $RC -eq 0 ]]; then
    name=""
    while [[ -z "$name" ]]; do
      read -p "Image Name? " name
@@ -98,8 +138,9 @@ if [[ $answer -eq 0 ]]; then
       exit 1
    fi
 
-   answer=`query_user "Watch the image? (^C to exit) (y/N) "`
-   if [[ $answer -eq 0 ]]; then
+   query_user "Watch the image? (^C to exit) (y/N) "
+   RC=$?
+   if [[ $RC -eq 0 ]]; then
       CMD="`which watch` -n3 $RACKCLI servers image get --name $name"
       [[ $V -gt 0 ]] && echo "EXECUTING: $CMD"
       $CMD
@@ -114,10 +155,11 @@ if [[ $answer -eq 0 ]]; then
    done
 fi
 
-answer=`query_user "Proceed with server rebuild? (y/N) "`
-if [[ $answer -ne 0 ]]; then exit 0; fi
+query_user "Proceed with server rebuild? (y/N) "
+RC=$?
+if [[ $RC -ne 0 ]]; then exit 0; fi
 
-CMD="$RACKCLI servers instance rebuild --id $UUID --image-id $IMGID"
+CMD="$RACKCLI servers instance rebuild --id $UUID --image-id $IMAGE"
 if [[ ! -z "$PASS" ]]; then
    CMD="$CMD --admin-pass $PASS"
 fi
@@ -131,8 +173,9 @@ if [[ $RC -ne 0 ]]; then
 fi
 CMD=""
 
-answer=`query_user "Watch the rebuild? (^C to quit) (y/N) "`
-if [[ $answer -ne 0 ]]; then exit 0; fi
+query_user "Watch the rebuild? (^C to quit) (y/N) "
+RC=$?
+if [[ $RC -ne 0 ]]; then exit 0; fi
 
 CMD="`which watch` -n3 $RACKCLI servers instance get --id $UUID"
 [[ $V -gt 0 ]] && echo "EXECUTING: $CMD"
