@@ -3,6 +3,8 @@ Just gimme the list &amp; I'll do the work for you. None of us are happy about t
 
 ![uml](https://github.rackspace.com/Team-V/cvesearch/raw/master/UMLDraft.png)
 
+![architecture](https://github.rackspace.com/Team-V/cvesearch/raw/master/CVESArchitecture.png)
+
 References
 ----------
 * https://access.redhat.com/security/security-updates/#/cve
