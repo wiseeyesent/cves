@@ -33,8 +33,13 @@
     yum:
       name: yum-plugin-replace
       state: latest
+  - name: Check for Default mariadb-libs Package
+    shell: rpm -q mariadb-libs
+    register: mdblibs
+    ignore_errors: yes
   - name: Replace mariadb Default Package
     shell: yes | yum replace mariadb-libs --replace-with=mariadb101u-libs
+    when: mdblibs.rc == 0
   - name: Install MariaDB
     yum:
       name: "{{ item }}"
@@ -56,10 +61,16 @@
       name: mariadb
       state: restarted
       enabled: yes
-  - name: Install Python MySQL Packages
+  - name: Install Python Packages
     yum:
       name: "{{ item }}"
       state: latest
     with_items:
+    - python-feedparser
+    - python-feedparser-doc
     - MySQL-python
     - mysql-connector-python
+  - name: Create Database
+    mysql_db:
+      login_unix_socket: /var/lib/mysql/mysql.sock
+      name: cves_dev

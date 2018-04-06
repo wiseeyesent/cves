@@ -110,7 +110,7 @@ fi
 $CMD | grep -E "^Name\s+\S*cvesearch\s*$"
 RC=$?
 if [[ $RC != 0 ]]; then
-   echo "This does not appear to be a cvesearch server. Are you sure you have the right UUID?"
+   echo "This does not appear to be a cvesearch server. Are you sure you have the right Name or UUID?"
    exit 1
 fi
 
