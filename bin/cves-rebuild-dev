@@ -18,7 +18,7 @@ V=1
 
 print_usage() {
 cat <<- _EOF_
-Usage: `basename $0` [[-u | --uuid UUID] [-n | --name NAME]] [-i | --image IMAGE] [-a | --admin-pass PASS]
+Usage: `basename $0` [[-u | --uuid UUID] | [-n | --name NAME]] [-i | --image IMAGE] [-a | --admin-pass PASS]
 Rebuild server for environment refresh.
 
 With no arguments, print usage.
@@ -129,6 +129,10 @@ if [[ $RC -eq 0 ]]; then
    while [[ -z "$name" ]]; do
      read -p "Image Name? " name
    done
+   if [[ ! -z "$($RACKCLI servers image get --name $name)" ]]; then
+        echo DUPLICATE IMAGE NAME: $name
+        exit 1
+   fi
    CMD="$RACKCLI servers image create --name $name --server-id $UUID"
    [[ $V -gt 0 ]] && echo "EXECUTING: $CMD"
    $CMD
