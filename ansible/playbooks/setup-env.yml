@@ -1,7 +1,7 @@
 ---
-- hosts: localhost
+- hosts: cvesearch
   vars:
-    - modified: "no"
+    - modified: "yes"
     - playbook: "cvesearch"
     - bupdir: "{{ ansible_env.HOME }}/.ansible/backups/{{ playbook }}"
   tasks:
