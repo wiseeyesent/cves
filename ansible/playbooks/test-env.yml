@@ -47,4 +47,4 @@
       src: "../templates/config.ini.j2"
       dest: "{{ home }}/config.ini"
   - name: Execute cve-save.py test script
-    shell: "{{ bindir }}/cve-save.py"
+    shell: "{{ home }}/bin/cve-save.py"
