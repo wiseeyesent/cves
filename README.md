@@ -1,9 +1,7 @@
 # cvesearch
 Just gimme the list &amp; I'll do the work for you. None of us are happy about this though.
 
-![uml](https://github.com/wiseeyesent/cves/raw/master/UMLDraft.png)
-
-![architecture](https://github.com/wiseeyesent/cves/raw/master/CVESArchitecture.png)
+Improved speed by up to 100x
 
 ```bash
 [root@josh9580-cvesearch ~]# time cve-save.py >/dev/null
@@ -22,6 +20,10 @@ real	0m16.101s
 user	0m2.720s
 sys	0m0.107s
 ```
+
+![uml](https://github.com/wiseeyesent/cves/raw/master/UMLDraft.png)
+
+![architecture](https://github.com/wiseeyesent/cves/raw/master/CVESArchitecture.png)
 
 References
 ----------
