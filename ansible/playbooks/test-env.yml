@@ -1,9 +1,12 @@
 ---
-- hosts: cvesearch
+- hosts: cves.wiseeyesent.com
   vars:
     - playbook: "cvesearch.test_env"
     - home: "{{ ansible_env.HOME }}"
     - bindir: "{{ home }}/.ansible/bin"
+    - scripts:
+      - cve-save.py
+      - cve-check.py
   tasks:
   - name: Add MySQL Test User
     mysql_user:
@@ -28,9 +31,17 @@
       src: "../resources/{{ item }}"
       dest: "{{ bindir }}/{{ item }}"
       mode: 0700
-    with_items:
-    - cve-check.py
-    - cve-save.py
+    with_items: "{{ scripts }}"
+  - name: Prep User bin Dir
+    file:
+      path: "{{ home }}/bin"
+      state: directory
+  - name: Symlink cvesearch Python Scripts
+    file:
+      state: link
+      dest: "{{ home }}/bin/{{ item }}"
+      src: "{{ bindir }}/{{ item }}"
+    with_items: "{{ scripts }}"
   - name: Upload config.ini
     template:
       src: "../templates/config.ini.j2"
