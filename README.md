@@ -1,9 +1,9 @@
 # cvesearch
 Just gimme the list &amp; I'll do the work for you. None of us are happy about this though.
 
-![uml](https://github.rackspace.com/Team-V/cvesearch/raw/master/UMLDraft.png)
+![uml](https://github.com/wiseeyesent/cves/raw/master/UMLDraft.png)
 
-![architecture](https://github.rackspace.com/Team-V/cvesearch/raw/master/CVESArchitecture.png)
+![architecture](https://github.com/wiseeyesent/cves/raw/master/CVESArchitecture.png)
 
 References
 ----------
