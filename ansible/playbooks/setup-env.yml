@@ -1,7 +1,7 @@
 ---
-- hosts: cves.wiseeyesent.com
+- hosts: localhost
   vars:
-    - modified: "yes"
+    - modified: "no"
     - playbook: "cvesearch"
     - bupdir: "{{ ansible_env.HOME }}/.ansible/backups/{{ playbook }}"
   tasks:
@@ -40,7 +40,7 @@
   - name: Replace mariadb Default Package
     shell: yes | yum replace mariadb-libs --replace-with=mariadb101u-libs
     when: mdblibs.rc == 0
-  - name: Install MariaDB
+  - name: Install DB Servers
     yum:
       name: "{{ item }}"
       state: latest
@@ -48,6 +48,7 @@
     - mariadb101u
     - mariadb101u-server
     - mariadb101u-server-utils
+    - redis40u
   - name: Backup Current MySQL Configuration
     shell: "cp -rav /etc/my.cnf /etc/my.cnf.d {{ bupdir }}"
     args:
@@ -61,6 +62,11 @@
       name: mariadb
       state: restarted
       enabled: yes
+  - name: Start Redis
+    service:
+      name: redis
+      state: started
+      enabled: yes
   - name: Install Python Packages
     yum:
       name: "{{ item }}"
@@ -70,6 +76,7 @@
     - python-feedparser-doc
     - MySQL-python
     - mysql-connector-python
+    - python-redis
   - name: Create Database
     mysql_db:
       login_unix_socket: /var/lib/mysql/mysql.sock

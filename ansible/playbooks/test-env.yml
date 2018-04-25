@@ -1,5 +1,5 @@
 ---
-- hosts: cves.wiseeyesent.com
+- hosts: localhost
   vars:
     - playbook: "cvesearch.test_env"
     - home: "{{ ansible_env.HOME }}"
